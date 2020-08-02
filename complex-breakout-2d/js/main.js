@@ -5,9 +5,13 @@ var Breakout = new Phaser.Class({
     Phaser.Scene.call(this, {
       key: 'breakout',
     });
+
     // button start game
     this.playing = false;
     this.startButton;
+
+    // level
+    this.level = 1;
 
     // score
     this.scoreText;
@@ -47,7 +51,7 @@ var Breakout = new Phaser.Class({
     this.startButton.on('pointerup', this.startGame, this);
 
     // show score
-    this.scoreText = this.add.text(5, 5, 'Points: ' + this.score, {
+    this.scoreText = this.add.text(5, 5, `Level: ${this.level} Points: ${this.score}`, {
       font: '18px Arial',
       fill: '#0095DD',
     });
@@ -58,12 +62,10 @@ var Breakout = new Phaser.Class({
       fill: '#0095DD',
     });
 
-    this.lifeLostText = this.add.text(
-      300,
-      400,
-      'Life lost, click to continue',
-      { font: '18px Arial', fill: '#0095DD' },
-    );
+    this.lifeLostText = this.add.text(300, 400, 'Life lost, click to continue', {
+      font: '18px Arial',
+      fill: '#0095DD',
+    });
 
     this.lifeLostText.visible = false;
 
@@ -90,7 +92,6 @@ var Breakout = new Phaser.Class({
       scale: { start: 0.5, end: 0 },
       blendMode: 'ADD',
     });
-    this.power.visible = false;
 
     // object ball
     this.ball = this.physics.add
@@ -100,26 +101,15 @@ var Breakout = new Phaser.Class({
 
     this.ball.setData('onPaddle', true);
 
-    this.paddle = this.physics.add
-      .image(400, 550, 'assets', 'paddle1')
-      .setImmovable();
+    // init follow ball
+    this.power.startFollow(this.ball);
+
+    this.paddle = this.physics.add.image(400, 550, 'assets', 'paddle1').setImmovable();
 
     //  Our colliders
-    this.physics.add.collider(
-      this.ball,
-      this.bricks,
-      this.hitBrick,
-      null,
-      this,
-    );
+    this.physics.add.collider(this.ball, this.bricks, this.hitBrick, null, this);
 
-    this.physics.add.collider(
-      this.ball,
-      this.paddle,
-      this.hitPaddle,
-      null,
-      this,
-    );
+    this.physics.add.collider(this.ball, this.paddle, this.hitPaddle, null, this);
 
     //  Input events
     this.input.on(
@@ -141,11 +131,15 @@ var Breakout = new Phaser.Class({
         if (this.ball.getData('onPaddle') && this.playing) {
           this.ball.setVelocity(-75, -300);
           this.ball.setData('onPaddle', false);
+
+          this.lifeLostText.setText('Life lost, click to continue');
           this.lifeLostText.visible = false;
         }
       },
       this,
     );
+
+    this.cursors = this.input.keyboard.createCursorKeys();
   },
 
   startGame: function () {
@@ -154,49 +148,8 @@ var Breakout = new Phaser.Class({
       this.playing = true;
       this.ball.setVelocity(-75, -300);
       this.ball.setData('onPaddle', false);
+      // this.power.stopFollow(this.ball);
     }
-  },
-
-  hitBrick: function (ball, brick) {
-    brick.disableBody(true, true);
-
-    this.score += 10;
-    this.scoreText.setText('Points: ' + this.score);
-
-    if (this.bricks.countActive() === 0) {
-      this.resetLevel(true);
-    }
-  },
-
-  resetBall: function () {
-    this.ball.setVelocity(0);
-    this.ball.setPosition(this.paddle.x, 500);
-    this.ball.setData('onPaddle', true);
-    this.lives--;
-    if (this.lives) {
-      this.livesText.setText('Lives: ' + this.lives);
-      this.lifeLostText.visible = true;
-    } else {
-      // game over
-      this.lifeLostText.setText('You lost, game over!').visible = true;
-      this.resetLevel();
-    }
-  },
-
-  resetLevel: function (win = false) {
-    this.resetBall();
-
-    if (!win) {
-      this.lives = 3;
-      this.score = 0;
-      this.scoreText.setText('Score: ' + this.score);
-      this.livesText.setText('Lives: ' + this.lives);
-      this.lifeLostText.setText('Life lost, click to continue');
-    }
-
-    this.bricks.children.each(function (brick) {
-      brick.enableBody(false, 0, 0, true, true);
-    });
   },
 
   hitPaddle: function (ball, paddle) {
@@ -215,22 +168,75 @@ var Breakout = new Phaser.Class({
       //  Add a little random X to stop it bouncing straight up!
       ball.setVelocityX(2 + Math.random() * 8);
     }
+
+    // add power
+    if (this.ball.body.velocity.x * 1 > 200 && !this.power._visible) {
+      this.power._visible = true;
+    } else if (this.ball.body.velocity.x * 1 < 200 && this.power._visible) {
+      this.power._visible = false;
+    }
+  },
+
+  hitBrick: function (ball, brick) {
+    brick.disableBody(true, true);
+
+    if (this.power._visible) {
+      console.log('Power', { x: ball.x, y: ball.y });
+      console.log('normal :', { x: this.ball.x, y: this.ball.y });
+    }
+
+    this.score += 10;
+    this.scoreText.setText(`Level: ${this.level} Score: ${this.score}`);
+
+    if (this.bricks.countActive() === 0) {
+      this.resetLevel(true);
+    }
+  },
+
+  resetBall: function () {
+    this.ball.setVelocity(0);
+    this.ball.setPosition(this.paddle.x, 500);
+    this.ball.setData('onPaddle', true);
+  },
+
+  resetLevel: function (win) {
+    if (win) {
+      this.level++;
+      this.scoreText.setText(`Level: ${this.level} Points: ${this.score}`);
+    } else {
+      this.lives = 3;
+      this.score = 0;
+      this.level = 1;
+      this.scoreText.setText(`Level: ${this.level} Points: ${this.score}`);
+      this.livesText.setText('Lives: ' + this.lives);
+      this.lifeLostText.setText('You lost, game over!').visible = true;
+    }
+
+    this.resetBall();
+    this.bricks.children.each(function (brick) {
+      brick.enableBody(false, 0, 0, true, true);
+    });
   },
 
   update: function () {
-    // add power
-    if (this.ball.body.velocity.x * 1 > 200 && !this.power.visible) {
-      this.power.visible = true;
-      this.power.startFollow(this.ball);
-    } else if (this.ball.body.velocity.x * 1 < 200 && this.power.visible) {
-      this.power.visible = false;
-      this.power.stopFollow(this.ball);
+    // keywords move
+    if (this.cursors.left.isDown) {
+      this.paddle.x = Phaser.Math.Clamp(this.paddle.x - 10, 52, 748);
+    } else if (this.cursors.right.isDown) {
+      this.paddle.x = Phaser.Math.Clamp(this.paddle.x + 10, 52, 748);
     }
 
     // lost life
     if (this.ball.y > 600) {
-      console.log('ball', this.ball.body.velocity);
       this.resetBall();
+      this.lives--;
+      if (this.lives > 0) {
+        this.livesText.setText('Lives: ' + this.lives);
+        this.lifeLostText.visible = true;
+      } else {
+        // game over
+        this.resetLevel(false);
+      }
     }
   },
 });
