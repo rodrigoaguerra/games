@@ -2,8 +2,27 @@ var Breakout = new Phaser.Class({
   Extends: Phaser.Scene,
 
   initialize: function Breakout() {
-    Phaser.Scene.call(this, { key: 'breakout' });
+    Phaser.Scene.call(this, {
+      key: 'breakout',
+    });
+    // button start game
+    this.playing = false;
+    this.startButton;
 
+    // score
+    this.scoreText;
+    this.score = 0;
+
+    // lives
+    this.lives = 3;
+    this.livesText;
+    this.lifeLostText;
+
+    // power
+    this.power;
+    this.hasPower = false;
+
+    // objects game
     this.bricks;
     this.paddle;
     this.ball;
@@ -12,11 +31,41 @@ var Breakout = new Phaser.Class({
   preload: function () {
     this.load.atlas('assets', 'images/breakout.png', 'images/breakout.json');
     this.load.image('red', 'images/red.png');
+    this.load.spritesheet('buttonStart', 'images/button.png', {
+      frameWidth: 120,
+      frameHeight: 40,
+    });
   },
 
   create: function () {
     //  Enable world bounds, but disable the floor
     this.physics.world.setBoundsCollision(true, true, true, false);
+
+    // init the game
+    this.startButton = this.add.image(400, 300, 'buttonStart').setInteractive();
+
+    this.startButton.on('pointerup', this.startGame, this);
+
+    // show score
+    this.scoreText = this.add.text(5, 5, 'Points: ' + this.score, {
+      font: '18px Arial',
+      fill: '#0095DD',
+    });
+
+    // show lifes
+    this.livesText = this.add.text(700, 5, 'Lives: ' + this.lives, {
+      font: '18px Arial',
+      fill: '#0095DD',
+    });
+
+    this.lifeLostText = this.add.text(
+      300,
+      400,
+      'Life lost, click to continue',
+      { font: '18px Arial', fill: '#0095DD' },
+    );
+
+    this.lifeLostText.visible = false;
 
     //  Create the bricks in a 10x6 grid
     this.bricks = this.physics.add.staticGroup({
@@ -36,21 +85,20 @@ var Breakout = new Phaser.Class({
     // add effect ball
     var particles = this.add.particles('red');
 
-    var emitter = particles.createEmitter({
+    this.power = particles.createEmitter({
       speed: 60,
       scale: { start: 0.5, end: 0 },
       blendMode: 'ADD',
     });
+    this.power.visible = false;
 
     // object ball
     this.ball = this.physics.add
       .image(400, 500, 'assets', 'ball1')
       .setCollideWorldBounds(true)
       .setBounce(1);
-    // .setVelocity(150, 150);
-    this.ball.setData('onPaddle', true);
 
-    emitter.startFollow(this.ball);
+    this.ball.setData('onPaddle', true);
 
     this.paddle = this.physics.add
       .image(400, 550, 'assets', 'paddle1')
@@ -90,20 +138,33 @@ var Breakout = new Phaser.Class({
     this.input.on(
       'pointerup',
       function (pointer) {
-        if (this.ball.getData('onPaddle')) {
+        if (this.ball.getData('onPaddle') && this.playing) {
           this.ball.setVelocity(-75, -300);
           this.ball.setData('onPaddle', false);
+          this.lifeLostText.visible = false;
         }
       },
       this,
     );
   },
 
+  startGame: function () {
+    this.startButton.destroy();
+    if (this.ball.getData('onPaddle')) {
+      this.playing = true;
+      this.ball.setVelocity(-75, -300);
+      this.ball.setData('onPaddle', false);
+    }
+  },
+
   hitBrick: function (ball, brick) {
     brick.disableBody(true, true);
 
+    this.score += 10;
+    this.scoreText.setText('Points: ' + this.score);
+
     if (this.bricks.countActive() === 0) {
-      this.resetLevel();
+      this.resetLevel(true);
     }
   },
 
@@ -111,10 +172,27 @@ var Breakout = new Phaser.Class({
     this.ball.setVelocity(0);
     this.ball.setPosition(this.paddle.x, 500);
     this.ball.setData('onPaddle', true);
+    this.lives--;
+    if (this.lives) {
+      this.livesText.setText('Lives: ' + this.lives);
+      this.lifeLostText.visible = true;
+    } else {
+      // game over
+      this.lifeLostText.setText('You lost, game over!').visible = true;
+      this.resetLevel();
+    }
   },
 
-  resetLevel: function () {
+  resetLevel: function (win = false) {
     this.resetBall();
+
+    if (!win) {
+      this.lives = 3;
+      this.score = 0;
+      this.scoreText.setText('Score: ' + this.score);
+      this.livesText.setText('Lives: ' + this.lives);
+      this.lifeLostText.setText('Life lost, click to continue');
+    }
 
     this.bricks.children.each(function (brick) {
       brick.enableBody(false, 0, 0, true, true);
@@ -140,7 +218,18 @@ var Breakout = new Phaser.Class({
   },
 
   update: function () {
+    // add power
+    if (this.ball.body.velocity.x * 1 > 200 && !this.power.visible) {
+      this.power.visible = true;
+      this.power.startFollow(this.ball);
+    } else if (this.ball.body.velocity.x * 1 < 200 && this.power.visible) {
+      this.power.visible = false;
+      this.power.stopFollow(this.ball);
+    }
+
+    // lost life
     if (this.ball.y > 600) {
+      console.log('ball', this.ball.body.velocity);
       this.resetBall();
     }
   },
@@ -164,75 +253,3 @@ var config = {
 };
 
 var game = new Phaser.Game(config);
-
-// var ball;
-// var paddle;
-
-// function preload() {
-//   // add sprite
-//   this.load.spritesheet('ball', 'images/ball.png', {
-//     frameWidth: 50,
-//     frameHeight: 50,
-//   });
-//   this.load.image('red', 'images/red.png');
-//   this.load.image('paddle', 'images/paddle.png');
-// }
-
-// function create() {
-//   //  Enable world bounds, but disable the floor
-//   this.physics.world.setBoundsCollision(true, true, true, false);
-
-//   // add effect ball
-//   var particles = this.add.particles('red');
-
-//   var emitter = particles.createEmitter({
-//     speed: 60,
-//     scale: { start: 0.5, end: 0 },
-//     blendMode: 'ADD',
-//   });
-
-//   // object ball
-//   ball = this.physics.add
-//     .image(50, 50, 'ball')
-//     .setCollideWorldBounds(true)
-//     .setBounce(1)
-//     .setVelocity(150, 150);
-
-//   ball.setData('onPaddle', true);
-
-//   emitter.startFollow(ball);
-
-//   // paddle
-//   paddle = this.physics.add
-//     .image(config.scale.width * 0.5, config.scale.height - 15, 'paddle')
-//     .setImmovable();
-
-//   //  Our colliders
-//   // this.physics.add.collider(this.ball, this.bricks, this.hitBrick, null, this);
-//   this.physics.add.collider(ball, paddle, hitPaddle, null, this);
-
-//   //  Input events
-//   this.input.on(
-//     'pointermove',
-//     function (pointer) {
-//       //  Keep the paddle within the game
-//       paddle.x = Phaser.Math.Clamp(pointer.x, 52, 748);
-
-//       if (ball.getData('onPaddle')) {
-//         ball.x = paddle.x;
-//       }
-//     },
-//     this,
-//   );
-
-//   this.input.on(
-//     'pointerup',
-//     function (pointer) {
-//       if (ball.getData('onPaddle')) {
-//         ball.setVelocity(-75, -300);
-//         ball.setData('onPaddle', false);
-//       }
-//     },
-//     this,
-//   );
-// }
