@@ -33,6 +33,12 @@ var Breakout = new Phaser.Class({
   },
 
   preload: function () {
+    this.load.image('background', 'assets/space1.png');
+    // audios
+    this.load.audio('music', 'assets/night.ogg');
+    this.load.audio('gameover', 'assets/gameover.ogg');
+
+    // images objects
     this.load.atlas('assets', 'images/breakout.png', 'images/breakout.json');
     this.load.image('red', 'images/red.png');
     this.load.spritesheet('buttonStart', 'images/button.png', {
@@ -42,6 +48,12 @@ var Breakout = new Phaser.Class({
   },
 
   create: function () {
+    // add background
+    this.add.image(400, 300, 'background');
+    // add sound
+    this.music = this.sound.add('music');
+    this.overSong = this.sound.add('gameover');
+
     //  Enable world bounds, but disable the floor
     this.physics.world.setBoundsCollision(true, true, true, false);
 
@@ -51,21 +63,31 @@ var Breakout = new Phaser.Class({
     this.startButton.on('pointerup', this.startGame, this);
 
     // show score
-    this.scoreText = this.add.text(5, 5, `Level: ${this.level} Points: ${this.score}`, {
-      font: '18px Arial',
-      fill: '#0095DD',
-    });
+    this.scoreText = this.add.text(
+      5,
+      5,
+      `Level: ${this.level} Points: ${this.score}`,
+      {
+        font: '18px Arial',
+        fill: '#FFFFFF',
+      },
+    );
 
     // show lifes
     this.livesText = this.add.text(700, 5, 'Lives: ' + this.lives, {
       font: '18px Arial',
-      fill: '#0095DD',
+      fill: '#FFFFFF',
     });
 
-    this.lifeLostText = this.add.text(300, 400, 'Life lost, click to continue', {
-      font: '18px Arial',
-      fill: '#0095DD',
-    });
+    this.lifeLostText = this.add.text(
+      300,
+      400,
+      'Life lost, click to continue',
+      {
+        font: '18px Arial',
+        fill: '#FFFFFF',
+      },
+    );
 
     this.lifeLostText.visible = false;
 
@@ -104,12 +126,26 @@ var Breakout = new Phaser.Class({
     // init follow ball
     this.power.startFollow(this.ball);
 
-    this.paddle = this.physics.add.image(400, 550, 'assets', 'paddle1').setImmovable();
+    this.paddle = this.physics.add
+      .image(400, 550, 'assets', 'paddle1')
+      .setImmovable();
 
     //  Our colliders
-    this.physics.add.collider(this.ball, this.bricks, this.hitBrick, null, this);
+    this.physics.add.collider(
+      this.ball,
+      this.bricks,
+      this.hitBrick,
+      null,
+      this,
+    );
 
-    this.physics.add.collider(this.ball, this.paddle, this.hitPaddle, null, this);
+    this.physics.add.collider(
+      this.ball,
+      this.paddle,
+      this.hitPaddle,
+      null,
+      this,
+    );
 
     //  Input events
     this.input.on(
@@ -129,11 +165,10 @@ var Breakout = new Phaser.Class({
       'pointerup',
       function (pointer) {
         if (this.ball.getData('onPaddle') && this.playing) {
-          this.ball.setVelocity(-75, -300);
-          this.ball.setData('onPaddle', false);
-
-          this.lifeLostText.setText('Life lost, click to continue');
-          this.lifeLostText.visible = false;
+          this.startGame();
+          // restart
+        } else if (!this.playing) {
+          this.startGame();
         }
       },
       this,
@@ -145,11 +180,26 @@ var Breakout = new Phaser.Class({
   startGame: function () {
     this.startButton.destroy();
     if (this.ball.getData('onPaddle')) {
+      // init music
+      if (!this.playing) {
+        this.music.play({
+          loop: true,
+        });
+      }
       this.playing = true;
       this.ball.setVelocity(-75, -300);
       this.ball.setData('onPaddle', false);
-      // this.power.stopFollow(this.ball);
+      this.lifeLostText.setText('Life lost, click to continue');
+      this.lifeLostText.visible = false;
     }
+  },
+
+  gameOver: function () {
+    this.playing = false;
+    this.music.stop();
+    this.overSong.play();
+    // game over
+    this.resetLevel(false);
   },
 
   hitPaddle: function (ball, paddle) {
@@ -180,12 +230,9 @@ var Breakout = new Phaser.Class({
   hitBrick: function (ball, brick) {
     brick.disableBody(true, true);
 
-    if (this.power._visible) {
-      console.log('Power', { x: ball.x, y: ball.y });
-      console.log('normal :', { x: this.ball.x, y: this.ball.y });
-    }
+    // if has power score mais 20;
+    this.score += this.power._visible ? 20 : 10;
 
-    this.score += 10;
     this.scoreText.setText(`Level: ${this.level} Score: ${this.score}`);
 
     if (this.bricks.countActive() === 0) {
@@ -222,8 +269,14 @@ var Breakout = new Phaser.Class({
     // keywords move
     if (this.cursors.left.isDown) {
       this.paddle.x = Phaser.Math.Clamp(this.paddle.x - 10, 52, 748);
+      if (this.ball.getData('onPaddle')) {
+        this.ball.x = this.paddle.x;
+      }
     } else if (this.cursors.right.isDown) {
       this.paddle.x = Phaser.Math.Clamp(this.paddle.x + 10, 52, 748);
+      if (this.ball.getData('onPaddle')) {
+        this.ball.x = this.paddle.x;
+      }
     }
 
     // lost life
@@ -234,8 +287,7 @@ var Breakout = new Phaser.Class({
         this.livesText.setText('Lives: ' + this.lives);
         this.lifeLostText.visible = true;
       } else {
-        // game over
-        this.resetLevel(false);
+        this.gameOver();
       }
     }
   },
