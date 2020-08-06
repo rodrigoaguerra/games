@@ -33,6 +33,20 @@ var Breakout = new Phaser.Class({
   },
 
   preload: function () {
+    // loader 
+    var progress = this.add.graphics();
+
+    this.load.on('progress', function (value) {
+        progress.clear();
+        progress.fillStyle(0xffffff, 1);
+        progress.fillRect(0, 270, 800 * value, 60);
+    });
+
+    this.load.on('complete', function () {
+        progress.destroy();
+    });
+
+    
     this.load.image('background', 'assets/space1.png');
     // audios
     this.load.audio('music', 'assets/night.ogg');
