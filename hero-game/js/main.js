@@ -38,7 +38,7 @@ function preload() {
   this.load.spritesheet('player', 'assets/player.png', {
     frameWidth: 150,
     frameHeight: 150,
-    endFrame: 30,
+    endFrame: 50,
   });
 }
 
@@ -87,7 +87,7 @@ function create() {
 
   this.anims.create({
     key: 'run',
-    frames: this.anims.generateFrameNumbers('player', { start: 11, end: 19, first: 11 }),
+    frames: this.anims.generateFrameNumbers('player', { start: 11, end: 20, first: 11 }),
     frameRate: 20,
     repeat: -1,
   });
@@ -101,8 +101,15 @@ function create() {
 
   this.anims.create({
     key: 'jump',
-    frames: this.anims.generateFrameNumbers('player', { start: 20, end: 29, first: 20 }),
+    frames: this.anims.generateFrameNumbers('player', { start: 20, end: 30, first: 20 }),
     frameRate: 20,
+    // repeat: -1,
+  });
+
+  this.anims.create({
+    key: 'dead',
+    frames: this.anims.generateFrameNumbers('player', { start: 32, end: 39, first: 32 }),
+    frameRate: 10,
     // repeat: -1,
   });
 
@@ -120,7 +127,7 @@ function create() {
 }
 
 function inAction() {
-  const actions = ['jump'];
+  const actions = ['jump', 'dead'];
   return actions.includes(player.anims.getCurrentKey());
 }
 
@@ -140,9 +147,8 @@ function update() {
     if (!cursors.up.isDown && !inAction()) player.anims.play('run', true);
   } else {
     player.setVelocityX(0);
-    console.log('key', !inAction());
     if (player.body.touching.down) {
-      player.anims.play('idle', true);
+      if (player.anims.getCurrentKey() !== 'dead') player.anims.play('idle', true);
     }
   }
 
@@ -151,7 +157,7 @@ function update() {
   }
 
   if (inAction() && player.body.touching.down) {
-    player.anims.play('idle', true);
+    if (player.anims.getCurrentKey() !== 'dead') player.anims.play('idle', true);
   }
 }
 
@@ -178,12 +184,11 @@ function collectStar(player, star) {
   }
 }
 
-function hitBomb(player, bomb) {
-  this.physics.pause();
-
+function hitBomb() {
+  // this.physics.pause();
   player.setTint(0xff0000);
 
-  player.anims.play('turn');
+  player.anims.play('dead', true);
 
   gameOver = true;
 }

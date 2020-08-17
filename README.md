@@ -1,5 +1,7 @@
 # Desenvolvendo jogos web
 
+Repositório destinado ao desenvolvimento de jogos web.
+
 # Referências
 
 - https://developer.mozilla.org/pt-BR/docs/Games/Tutorials/2D_Breakout_game_pure_JavaScript
